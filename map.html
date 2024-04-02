@@ -55,11 +55,12 @@
 
         let projectmethod = d3.geoNaturalEarth1().scale(300).translate([width / 2, height / 2])
         let pathGenerator = d3.geoPath().projection(projectmethod)
-        const zoom = d3.zoom().scaleExtent([1, 8]).on("zoom", zoomed)
-        d3.json("ne_10m_admin_1_states_provinces.json")
+        const zoom = d3.zoom().scaleExtent([1, 65]).on("zoom", zoomed)
+        d3.json("ne_10m_admin_0_countries.json")
             .then(data => {
-                const geometries = topojson.feature(data, data.objects["ne_10m_admin_1_states_provinces"])
+                const geometries = topojson.feature(data, data.objects["ne_10m_admin_0_countries"])
                 console.log(geometries)
+                
 
                 g.append("path")
                 const paths = g.selectAll("path").data(geometries.features)
@@ -67,10 +68,10 @@
                     .append("path")
                     .attr("d", pathGenerator)
                     .attr("class", "country")
-                    // 加上簡易版本 tooltip
-                    .on("mouseover", handleMouseOver)
-                    .append("title")
-                    .text(d => `${d.properties["name_en"]} - ${d.properties["name_zht"]}`)
+                // .on("mouseover", handleMouseOver)
+                // 加上簡易版本 tooltip
+                // .append("title")
+                // .text(d => `${d.properties["name_en"]} - ${d.properties["name_zht"]}`)
                 g.selectAll("path").on("click", countryZoomIn)
                 svg.call(zoom)
 
@@ -93,27 +94,27 @@
         svg.on("click", reset)
 
         function countryZoomIn(event, d) {
-            const [[x0, y0], [x1, y1]] = pathGenerator.bounds(d)
             event.stopPropagation()
 
+            const [[x0, y0], [x1, y1]] = pathGenerator.bounds(d)
             const centroid = pathGenerator.centroid(d)
-            const scale = Math.min(8, 0.9 / Math.max((x1 - x0) / width, (y1 - y0) / height))
+            const scale = Math.min(8, 0.5 / Math.max((x1 - x0) / width, (y1 - y0) / height))
             const translate = [width / 2 - scale * centroid[0], height / 2 - scale * centroid[1]]
 
-            g.transition()
-                .duration(750)
-                .attr("transform", `translate(${translate})scale(${scale})`)
+            svg.transition().duration(800).call(
+                zoom.transform,
+                d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale)
+            )
 
-            // Reset previously clicked country
             if (centered !== d) {
                 g.selectAll(".country").classed("active", false)
             }
 
-            // Highlight clicked country
             centered = centered === d ? null : d
 
             g.selectAll("path")
-                .classed("active", centered && function (d) { return d === centered; })
+                .classed("active", centered && function (d) { return d === centered })
+
         }
 
         function reset() {
@@ -124,7 +125,7 @@
             )
         }
 
-        function zoomed(event) {
+        function zoomed(event) { // 更新缩放函数
             const { transform } = event
             g.attr("transform", transform)
             g.attr("stroke-width", 1 / transform.k)
