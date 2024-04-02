@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zoom In and Out with D3.js</title>
+    <style>
+        #container {
+            position: relative;
+            height: 100vh;
+        }
+
+        .overlay-image {
+            /* display: none; */
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="container">
+        <img src="1F-v1.png" alt="" style="height: 100%;" id="baseImage">
+        <img src="1F-dry-warehouse-area.png" alt="" style="position: absolute;cursor: pointer;width: 12%;left: 628px;" id="dryWarehouseArea">
+    </div>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script>
+        // 获取底图和放大图的元素
+        const baseImage = d3.select('#baseImage');
+        const dryWarehouseArea = d3.select('#dryWarehouseArea');
+        const electricFurnaceRoom = d3.select('#electricFurnaceRoom');
+        const gasProcessingArea = d3.select('#gasProcessingArea');
+
+        // 绑定点击事件，显示对应的放大图
+        dryWarehouseArea.on('click', function () {
+            showOverlayImage('dryWarehouseArea');
+        });
+
+        electricFurnaceRoom.on('click', function () {
+            showOverlayImage('electricFurnaceRoom');
+        });
+
+        gasProcessingArea.on('click', function () {
+            showOverlayImage('gasProcessingArea');
+        });
+
+        // 显示对应的放大图
+        function showOverlayImage(imageId) {
+            // 隐藏所有放大图
+            d3.selectAll('.overlay-image').style('display', 'none');
+            // 显示指定的放大图
+            d3.select(`#${imageId}`)
+                .style('display', 'block')
+                .style('transform', 'translate(-10%, -120%)')
+                .transition()
+                .duration(1000) // 动画持续时间为1秒
+                .style('width', '30%');
+        }
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <script src="d3.v7.js"></script>
+    <script>
+        async function getData() {
+            data = await d3.json('O-A0001-001.json')
+            console.log(data)
+        }
+        getData()
+    </script>
+</body>
+
+</html>

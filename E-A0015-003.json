@@ -1,0 +1,19 @@
+{
+ "cwaopendata": {
+  "@xmlns": "urn:cwa:gov:tw:cwacommon:0.1",
+  "identifier": "202402130758-EQ2024005-Shakemap",
+  "sender": "cwasoc@cwa.gov.tw",
+  "sent": "2024-02-13T08:08:37+8:00",
+  "status": "Actual",
+  "msgType": "Issue",
+  "dataid": "E-A0015-003",
+  "scope": "Public",
+  "Dataset": {
+   "Resource": {
+    "ResourceDesc": "2024005等震度圖",
+    "MimeType": "image/png",
+    "ProductURL": "https://cwaopendata.s3.ap-northeast-1.amazonaws.com/Earthquake/E-A0015-003.png"
+   }
+  }
+ }
+}

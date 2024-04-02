@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>世界地圖</title>
+
+    <style>
+        :root {
+            --map-width: calc(100vw - 20px);
+            --map-height: calc(100vh - 20px);
+        }
+
+        svg {
+            width: var(--map-width);
+            height: var(--map-height);
+        }
+
+        body {
+            background: lightblue;
+        }
+
+        .country {
+            fill: #ebf0e4;
+            stroke: gray;
+            stroke-width: 0.1px;
+        }
+
+        .country:hover {
+            fill: lightgray;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- div的寫法 -->
+    <!-- <div id="map"></div> -->
+    <svg id="map"></svg>
+
+
+    <script src="d3.v7.js"></script>
+    <script src="https://unpkg.com/topojson@3.0.2/dist/topojson.js"></script>
+
+    <script>
+        // div的寫法
+        // const svg = d3.select("#map").append("svg").attr("width", "1800").attr("height", "800px")
+
+        const width = window.innerWidth
+        const height = window.innerHeight
+        let centered
+        const svg = d3.select("#map")
+        const g = svg.append("g")
+
+        let projectmethod = d3.geoNaturalEarth1().scale(300).translate([width / 2, height / 2])
+        let pathGenerator = d3.geoPath().projection(projectmethod)
+        const zoom = d3.zoom().scaleExtent([1, 8]).on("zoom", zoomed)
+        d3.json("ne_10m_admin_1_states_provinces.json")
+            .then(data => {
+                const geometries = topojson.feature(data, data.objects["ne_10m_admin_1_states_provinces"])
+                console.log(geometries)
+
+                g.append("path")
+                const paths = g.selectAll("path").data(geometries.features)
+                paths.enter()
+                    .append("path")
+                    .attr("d", pathGenerator)
+                    .attr("class", "country")
+                    // 加上簡易版本 tooltip
+                    .on("mouseover", handleMouseOver)
+                    .append("title")
+                    .text(d => `${d.properties["name_en"]} - ${d.properties["name_zht"]}`)
+                g.selectAll("path").on("click", countryZoomIn)
+                svg.call(zoom)
+
+                function handleMouseOver(event, d) {
+                    const countryName = d.properties["name_en"]
+                    const index = getCountryIndex(countryName)
+                    console.log(`Hovered country index: ${index}`)
+                }
+
+                function getCountryIndex(countryName) {
+                    return geometries.features.findIndex(feature => feature.properties["name_en"] === countryName)
+                }
+
+            })
+            .catch(error => {
+                console.log("Error loading map data: ", error)
+            })
+
+
+        svg.on("click", reset)
+
+        function countryZoomIn(event, d) {
+            const [[x0, y0], [x1, y1]] = pathGenerator.bounds(d)
+            event.stopPropagation()
+
+            const centroid = pathGenerator.centroid(d)
+            const scale = Math.min(8, 0.9 / Math.max((x1 - x0) / width, (y1 - y0) / height))
+            const translate = [width / 2 - scale * centroid[0], height / 2 - scale * centroid[1]]
+
+            g.transition()
+                .duration(750)
+                .attr("transform", `translate(${translate})scale(${scale})`)
+
+            // Reset previously clicked country
+            if (centered !== d) {
+                g.selectAll(".country").classed("active", false)
+            }
+
+            // Highlight clicked country
+            centered = centered === d ? null : d
+
+            g.selectAll("path")
+                .classed("active", centered && function (d) { return d === centered; })
+        }
+
+        function reset() {
+            svg.transition().duration(750).call(
+                zoom.transform,
+                d3.zoomIdentity,
+                d3.zoomTransform(svg.node()).invert([width / 2, height / 2])
+            )
+        }
+
+        function zoomed(event) {
+            const { transform } = event
+            g.attr("transform", transform)
+            g.attr("stroke-width", 1 / transform.k)
+        }
+
+
+    </script>
+</body>
+
+</html>
