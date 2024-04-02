@@ -31,6 +31,26 @@
             fill: lightgray;
             cursor: pointer;
         }
+
+        .region {
+            fill: yellowgreen;
+            stroke: darkgray;
+        }
+
+        .region:hover {
+            fill: lightslategray;
+        }
+
+        .tooltip {
+            position: absolute;
+            top: 0;
+            left: 1%;
+            font-size: 2rem;
+            font-weight: 600;
+            color: brown;
+            letter-spacing: 0.2rem;
+            visibility: hidden;
+        }
     </style>
 </head>
 
@@ -49,41 +69,53 @@
 
         const width = window.innerWidth
         const height = window.innerHeight
-        let centered
+        // let centered
         const svg = d3.select("#map")
         const g = svg.append("g")
 
         let projectmethod = d3.geoNaturalEarth1().scale(300).translate([width / 2, height / 2])
         let pathGenerator = d3.geoPath().projection(projectmethod)
         const zoom = d3.zoom().scaleExtent([1, 65]).on("zoom", zoomed)
+        const tooltip = d3.select("body")
+            .append("div")
+            .attr("class", "tooltip")
         d3.json("ne_10m_admin_0_countries.json")
             .then(data => {
-                const geometries = topojson.feature(data, data.objects["ne_10m_admin_0_countries"])
-                console.log(geometries)
-                
+                const geoCountries = topojson.feature(data, data.objects["ne_10m_admin_0_countries"])
+                console.log(geoCountries)
+
 
                 g.append("path")
-                const paths = g.selectAll("path").data(geometries.features)
+                const paths = g.selectAll("path").data(geoCountries.features)
                 paths.enter()
                     .append("path")
                     .attr("d", pathGenerator)
                     .attr("class", "country")
-                // .on("mouseover", handleMouseOver)
+                    .on("mouseover", function (event, d) {
+                        tooltip.style("visibility", "visible")
+                            .html(`<p>國家：${d.properties.NAME_ZHT}(${d.properties.GEOUNIT})</p>`)
+                    })
+                    .on("mouseleave", function () {
+                        tooltip.style("visibility", "hidden")
+                    })
+                    // .on("mouseover", getIndex)
                 // 加上簡易版本 tooltip
                 // .append("title")
                 // .text(d => `${d.properties["name_en"]} - ${d.properties["name_zht"]}`)
-                g.selectAll("path").on("click", countryZoomIn)
+                g.selectAll(".country").on("click", countryZoomIn)
                 svg.call(zoom)
 
-                function handleMouseOver(event, d) {
-                    const countryName = d.properties["name_en"]
+                function getIndex(event, d) {
+                    const countryName = d.properties["NAME"]
+                    console.log(countryName)
                     const index = getCountryIndex(countryName)
                     console.log(`Hovered country index: ${index}`)
                 }
 
                 function getCountryIndex(countryName) {
-                    return geometries.features.findIndex(feature => feature.properties["name_en"] === countryName)
+                    return geoCountries.features.findIndex(feature => feature.properties["NAME"] == countryName)
                 }
+
 
             })
             .catch(error => {
@@ -94,30 +126,51 @@
         svg.on("click", reset)
 
         function countryZoomIn(event, d) {
+            const countryName = d.properties.GEOUNIT
+
+            d3.json("ne_10m_admin_1_states_provinces.json")
+                .then(data => {
+                    const geoRegion = topojson.feature(data, data.objects["ne_10m_admin_1_states_provinces"])
+                    console.log(geoRegion)
+                    g.selectAll(".region").remove()
+
+                    const filteredRegions = geoRegion.features.filter(region => {
+                        if (region.properties.geonunit === countryName) {
+                            return region.properties.geonunit === countryName
+                        } else if (region.properties.admin === countryName) {
+                            return region.properties.admin === countryName
+                        }
+                    })
+                    g.selectAll(".region")
+                        .data(filteredRegions)
+                        .enter()
+                        .append("path")
+                        .attr("d", pathGenerator)
+                        .attr("class", "region")
+                        .on("mouseover", function (event, d) {
+                            tooltip.style("visibility", "visible")
+                                .html(`<p>國家：${d.properties.geonunit}</p><p>${d.properties.name_zht} ${d.properties.name_en}</p><p></p>`)
+                        })
+                        .on("mouseleave", function (event, d) {
+                            tooltip.style("visibility", "hidden")
+                        })
+                })
+
             event.stopPropagation()
 
             const [[x0, y0], [x1, y1]] = pathGenerator.bounds(d)
             const centroid = pathGenerator.centroid(d)
-            const scale = Math.min(8, 0.5 / Math.max((x1 - x0) / width, (y1 - y0) / height))
+            const scale = Math.min(8, 0.9 / Math.max((x1 - x0) / width, (y1 - y0) / height))
             const translate = [width / 2 - scale * centroid[0], height / 2 - scale * centroid[1]]
 
             svg.transition().duration(800).call(
                 zoom.transform,
                 d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale)
             )
-
-            if (centered !== d) {
-                g.selectAll(".country").classed("active", false)
-            }
-
-            centered = centered === d ? null : d
-
-            g.selectAll("path")
-                .classed("active", centered && function (d) { return d === centered })
-
         }
 
         function reset() {
+            g.selectAll(".region").remove()
             svg.transition().duration(750).call(
                 zoom.transform,
                 d3.zoomIdentity,
