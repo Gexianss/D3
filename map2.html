@@ -18,7 +18,6 @@
             margin: auto;
             display: block;
             border-radius: 50%;
-
         }
 
         body {
@@ -37,9 +36,6 @@
         }
 
         .region {
-            /* fill: rgb(103, 138, 33);
-            stroke: rgb(167, 255, 26);
-            stroke-width: 0.3px; */
             fill: rgb(85, 116, 124);
             stroke: rgb(156, 175, 180);
             stroke-width: 0.1px;
@@ -71,6 +67,7 @@
     <!-- div的寫法 -->
     <!-- <div id="map"></div> -->
     <svg id="map">
+        <!-- 海的顏色 -->
         <rect width="100%" height="100%" fill="rgb(0, 51, 102)"></rect>
     </svg>
 
@@ -90,18 +87,21 @@
         const svg = d3.select("#map")
         const g = svg.append("g")
 
+        // 地圖引入起手式
         let projectmethod = d3.geoOrthographic().scale(400).translate([width / 2, height / 2])
         let pathGenerator = d3.geoPath().projection(projectmethod)
+        // 定義放大的比例
         const zoom = d3.zoom().scaleExtent([1, 65]).on("zoom", zoomed)
         const tooltip = d3.select("body")
             .append("div")
             .attr("class", "tooltip")
+        // 開始讀取地圖經緯度
         d3.json("ne_10m_admin_0_countries.json")
             .then(data => {
+                // 地圖格式是存topo格式，所以用topo解析
                 const geoCountries = topojson.feature(data, data.objects["ne_10m_admin_0_countries"])
                 console.log(geoCountries)
-
-
+                // 將解析的資料開始畫圖
                 const paths = g.selectAll("path").data(geoCountries.features)
                 paths.enter()
                     .append("path")
@@ -116,6 +116,7 @@
                     })
                 // .on("mouseover", getIndex)
 
+                // 當點擊國家的時候放大顯示城鎮區域
                 g.selectAll(".country").on("click", countryZoomIn)
                 svg.call(zoom)
 
@@ -130,14 +131,14 @@
                     return geoCountries.features.findIndex(feature => feature.properties["NAME"] == countryName)
                 }
 
-
             })
             .catch(error => {
                 console.log("Error loading map data: ", error)
             })
-        // 定义拖动事件
+        // 定義拖動事件
         const drag = d3.drag()
             .subject(function () {
+                // projectmethod.rotate()是D3的API
                 var r = projectmethod.rotate()
                 return {
                     x: r[0],
@@ -145,10 +146,11 @@
                 }
             })
             .on("drag", function (event) {
-                const moveFactor = 0.05; // 设置移动因子，用于调整地图移动的速度
+                // 設定數值用於調整地圖移動速度
+                const moveFactor = 0.05
 
-                const dx = (event.x - event.subject.x) * moveFactor // 计算鼠标水平移动距离，并乘以移动因子
-                const dy = (event.y - event.subject.y) * moveFactor // 计算鼠标垂直移动距离，并乘以移动因子
+                const dx = (event.x - event.subject.x) * moveFactor // 計算鼠標水平移動距離
+                const dy = (event.y - event.subject.y) * moveFactor // 計算鼠標垂直移動距離
 
                 var rotate = projectmethod.rotate()
                 projectmethod.rotate([rotate[0] + dx, rotate[1] - dy, rotate[2]])
@@ -156,18 +158,19 @@
             });
 
         svg.call(drag)
-
+        // 當點擊地圖時重製放大縮小
         svg.on("click", reset)
 
+        // 國家放大方式
         function countryZoomIn(event, d) {
             const countryName = d.properties.GEOUNIT
-
+            // 讀取城鎮的經緯度檔案
             d3.json("ne_10m_admin_1_states_provinces.json")
                 .then(data => {
                     const geoRegion = topojson.feature(data, data.objects["ne_10m_admin_1_states_provinces"])
                     console.log(geoRegion)
                     g.selectAll(".region").remove()
-
+                    // 因為國家名稱跟城鎮的國家名稱有時候不一樣，導致城鎮顯示不出來，所以抓取另一個標籤來判斷
                     const filteredRegions = geoRegion.features.filter(region => {
                         if (region.properties.geonunit === countryName) {
                             return region.properties.geonunit === countryName
@@ -192,10 +195,10 @@
 
             event.stopPropagation()
 
+            // 以下是城鎮放大計算
             const [[x0, y0], [x1, y1]] = pathGenerator.bounds(d)
             const centroid = pathGenerator.centroid(d)
             const scale = Math.min(2, 0.9 / Math.max((x1 - x0) / width, (y1 - y0) / height))
-            console.log(scale)
             const translate = [width / 2 - scale * centroid[0], height / 2 - scale * centroid[1]]
             const moveFactor = 0.05;
             const dx = -centroid[0] * moveFactor;
@@ -208,7 +211,7 @@
             )
 
         }
-
+        // 以下是地圖重製放大縮小
         function reset() {
             g.selectAll(".region").remove()
             svg.transition().duration(750).call(
@@ -217,7 +220,7 @@
                 d3.zoomTransform(svg.node()).invert([width / 2, height / 2])
             )
         }
-
+        // 以下是Zoom的放大縮小
         function zoomed(event) { // 更新缩放函数
             const { transform } = event
             g.attr("transform", transform)
