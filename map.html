@@ -85,10 +85,9 @@
                 console.log(geoCountries)
 
 
-                g.append("path")
                 const paths = g.selectAll("path").data(geoCountries.features)
                 paths.enter()
-                    .append("path")
+                .append("path")
                     .attr("d", pathGenerator)
                     .attr("class", "country")
                     .on("mouseover", function (event, d) {

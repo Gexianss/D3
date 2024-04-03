@@ -4,295 +4,226 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>世界地圖</title>
+
     <style>
+        :root {
+            --map-width: calc(100vw - 20px);
+            --map-height: calc(100vh - 20px);
+        }
+
+        svg {
+            width: 800px;
+            height: 800px;
+            margin: auto;
+            display: block;
+            border-radius: 50%;
+
+        }
+
         body {
-            margin: 0;
-            background-color: #2A2C39;
-            font-family: 'Yanone Kaffeesatz', sans-serif;
-            font-weight: 200;
-            font-size: 17px;
-        }
-
-        #map-holder {
-            width: 100vw;
-            height: 100vh;
-        }
-
-        svg rect {
-            fill: #2A2C39;
-            /* map background colour */
+            background: rgb(36, 36, 36);
         }
 
         .country {
-            fill: #d0d0d0;
-            /* country colour */
-            stroke: #2A2C39;
-            /* country border colour */
-            stroke-width: 1;
-            /* country border width */
+            fill: rgb(211, 211, 211);
+            stroke: rgb(85, 116, 124);
+            stroke-width: 0.3px;
         }
 
-        .country-on {
-            fill: #4B5358;
-            /* highlight colour for selected country */
+        .country:hover {
+            fill: rgb(85, 116, 124);
+            cursor: pointer;
         }
 
-        .countryLabel {
-            display: none;
-            /* hide all country labels by default */
+        .region {
+            /* fill: rgb(103, 138, 33);
+            stroke: rgb(167, 255, 26);
+            stroke-width: 0.3px; */
+            fill: rgb(85, 116, 124);
+            stroke: rgb(156, 175, 180);
+            stroke-width: 0.1px;
         }
 
-        .countryName {
-            fill: #FFFAFF;
-            /* country label text colour */
+        .region:hover {
+            fill: rgb(156, 175, 180);
         }
 
-        .countryLabelBg {
-            fill: #30BCED;
-            /* country label background colour */
+        .tooltip {
+            position: absolute;
+            bottom: 2%;
+            left: 1%;
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: white;
+            letter-spacing: 0.2rem;
+            visibility: hidden;
+            background-color: rgb(255, 72, 0);
+            border-radius: 10px;
+            padding: 5px;
+            padding-left: 10px;
+            border: 5px solid rgb(255, 72, 0);
         }
     </style>
 </head>
 
 <body>
-    <div id="map-holder"></div>
+    <!-- div的寫法 -->
+    <!-- <div id="map"></div> -->
+    <svg id="map">
+        <rect width="100%" height="100%" fill="rgb(0, 51, 102)"></rect>
+    </svg>
+
 
     <script src="d3.v7.js"></script>
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://unpkg.com/topojson@3.0.2/dist/topojson.js"></script>
 
     <script>
-        // DEFINE VARIABLES
-        // Define size of map group
-        // Full world map is 2:1 ratio
-        // Using 12:5 because we will crop top and bottom of map
-        w = 3000;
-        h = 1250;
-        // variables for catching min and max zoom factors
-        var minZoom;
-        var maxZoom;
+        // div的寫法
+        // const svg = d3.select("#map").append("svg").attr("width", "1800").attr("height", "800px")
 
-        // DEFINE FUNCTIONS/OBJECTS
-        // Define map projection
-        var projection = d3
-            .geoEquirectangular()
-            .center([0, 15]) // set centre to further North as we are cropping more off bottom of map
-            .scale([w / (2 * Math.PI)]) // scale to fit group width
-            .translate([w / 2, h / 2]) // ensure centred in group
-            ;
+        // const width = window.innerWidth
+        // const height = window.innerHeight
+        const width = 800
+        const height = 800
+        // let centered
+        const svg = d3.select("#map")
+        const g = svg.append("g")
 
-        // Define map path
-        var path = d3
-            .geoPath()
-            .projection(projection)
-            ;
-
-        // Create function to apply zoom to countriesGroup
-        function zoomed() {
-            t = d3
-                .event
-                .transform
-                
-            countriesGroup
-                .attr("transform", "translate(" + [t.x, t.y] + ")scale(" + t.k + ")")
-                
-        }
-
-        // Define map zoom behaviour
-        var zoom = d3
-            .zoom()
-            .on("zoom", zoomed)
-            ;
-
-        function getTextBox(selection) {
-            selection
-                .each(function (d) {
-                    d.bbox = this
-                        .getBBox();
-                })
-                ;
-        }
-
-        // Function that calculates zoom/pan limits and sets zoom to default value 
-        function initiateZoom() {
-            // Define a "minzoom" whereby the "Countries" is as small possible without leaving white space at top/bottom or sides
-            minZoom = Math.max($("#map-holder").width() / w, $("#map-holder").height() / h);
-            // set max zoom to a suitable factor of this value
-            maxZoom = 20 * minZoom;
-            // set extent of zoom to chosen values
-            // set translate extent so that panning can't cause map to move out of viewport
-            zoom
-                .scaleExtent([minZoom, maxZoom])
-                .translateExtent([[0, 0], [w, h]])
-                ;
-            // define X and Y offset for centre of map to be shown in centre of holder
-            midX = ($("#map-holder").width() - minZoom * w) / 2;
-            midY = ($("#map-holder").height() - minZoom * h) / 2;
-            // change zoom transform to min zoom and centre offsets
-            svg.call(zoom.transform, d3.zoomIdentity.translate(midX, midY).scale(minZoom));
-        }
-
-        // zoom to show a bounding box, with optional additional padding as percentage of box size
-        function boxZoom(box, centroid, paddingPerc) {
-            minXY = box[0];
-            maxXY = box[1];
-            // find size of map area defined
-            zoomWidth = Math.abs(minXY[0] - maxXY[0]);
-            zoomHeight = Math.abs(minXY[1] - maxXY[1]);
-            // find midpoint of map area defined
-            zoomMidX = centroid[0];
-            zoomMidY = centroid[1];
-            // increase map area to include padding
-            zoomWidth = zoomWidth * (1 + paddingPerc / 100);
-            zoomHeight = zoomHeight * (1 + paddingPerc / 100);
-            // find scale required for area to fill svg
-            maxXscale = $("svg").width() / zoomWidth;
-            maxYscale = $("svg").height() / zoomHeight;
-            zoomScale = Math.min(maxXscale, maxYscale);
-            // handle some edge cases
-            // limit to max zoom (handles tiny countries)
-            zoomScale = Math.min(zoomScale, maxZoom);
-            // limit to min zoom (handles large countries and countries that span the date line)
-            zoomScale = Math.max(zoomScale, minZoom);
-            // Find screen pixel equivalent once scaled
-            offsetX = zoomScale * zoomMidX;
-            offsetY = zoomScale * zoomMidY;
-            // Find offset to centre, making sure no gap at left or top of holder
-            dleft = Math.min(0, $("svg").width() / 2 - offsetX);
-            dtop = Math.min(0, $("svg").height() / 2 - offsetY);
-            // Make sure no gap at bottom or right of holder
-            dleft = Math.max($("svg").width() - w * zoomScale, dleft);
-            dtop = Math.max($("svg").height() - h * zoomScale, dtop);
-            // set zoom
-            svg
-                .transition()
-                .duration(500)
-                .call(
-                    zoom.transform,
-                    d3.zoomIdentity.translate(dleft, dtop).scale(zoomScale)
-                );
-        }
+        let projectmethod = d3.geoOrthographic().scale(400).translate([width / 2, height / 2])
+        let pathGenerator = d3.geoPath().projection(projectmethod)
+        const zoom = d3.zoom().scaleExtent([1, 65]).on("zoom", zoomed)
+        const tooltip = d3.select("body")
+            .append("div")
+            .attr("class", "tooltip")
+        d3.json("ne_10m_admin_0_countries.json")
+            .then(data => {
+                const geoCountries = topojson.feature(data, data.objects["ne_10m_admin_0_countries"])
+                console.log(geoCountries)
 
 
-
-
-        // on window resize
-        $(window).resize(function () {
-            // Resize SVG
-            svg
-                .attr("width", $("#map-holder").width())
-                .attr("height", $("#map-holder").height())
-                ;
-            initiateZoom();
-        });
-
-        // create an SVG
-        var svg = d3
-            .select("#map-holder")
-            .append("svg")
-            // set to the same size as the "map-holder" div
-            .attr("width", $("#map-holder").width())
-            .attr("height", $("#map-holder").height())
-            // add zoom functionality
-            .call(zoom)
-            
-
-
-        // get map data
-        d3.json(
-            "ne_10m_admin_0_countries.json", function (json) {
-                //Bind data and create one path per GeoJSON feature
-                countriesGroup = svg.append("g").attr("id", "map");
-                // add a background rectangle
-                countriesGroup
-                    .append("rect")
-                    .attr("x", 0)
-                    .attr("y", 0)
-                    .attr("width", w)
-                    .attr("height", h);
-
-                // draw a path for each feature/country
-                countries = countriesGroup
-                    .selectAll("path")
-                    .data(json.features)
-                    .enter()
+                const paths = g.selectAll("path").data(geoCountries.features)
+                paths.enter()
                     .append("path")
-                    .attr("d", path)
-                    .attr("id", function (d, i) {
-                        return "country" + d.properties.iso_a3;
-                    })
+                    .attr("d", pathGenerator)
                     .attr("class", "country")
-                    //      .attr("stroke-width", 10)
-                    //      .attr("stroke", "#ff0000")
-                    // add a mouseover action to show name label for feature/country
-                    .on("mouseover", function (d, i) {
-                        d3.select("#countryLabel" + d.properties.iso_a3).style("display", "block");
+                    .on("mouseover", function (event, d) {
+                        tooltip.style("visibility", "visible")
+                            .html(`<p>國家：${d.properties.NAME_ZHT}(${d.properties.GEOUNIT})</p>`)
                     })
-                    .on("mouseout", function (d, i) {
-                        d3.select("#countryLabel" + d.properties.iso_a3).style("display", "none");
+                    .on("mouseleave", function () {
+                        tooltip.style("visibility", "hidden")
                     })
-                    // add an onclick action to zoom into clicked country
-                    .on("click", function (d, i) {
-                        d3.selectAll(".country").classed("country-on", false);
-                        d3.select(this).classed("country-on", true);
-                        boxZoom(path.bounds(d), path.centroid(d), 20);
-                    });
-                // Add a label group to each feature/country. This will contain the country name and a background rectangle
-                // Use CSS to have class "countryLabel" initially hidden
-                countryLabels = countriesGroup
-                    .selectAll("g")
-                    .data(json.features)
-                    .enter()
-                    .append("g")
-                    .attr("class", "countryLabel")
-                    .attr("id", function (d) {
-                        return "countryLabel" + d.properties.iso_a3;
+                // .on("mouseover", getIndex)
+
+                g.selectAll(".country").on("click", countryZoomIn)
+                svg.call(zoom)
+
+                function getIndex(event, d) {
+                    const countryName = d.properties["NAME"]
+                    console.log(countryName)
+                    const index = getCountryIndex(countryName)
+                    console.log(`Hovered country index: ${index}`)
+                }
+
+                function getCountryIndex(countryName) {
+                    return geoCountries.features.findIndex(feature => feature.properties["NAME"] == countryName)
+                }
+
+
+            })
+            .catch(error => {
+                console.log("Error loading map data: ", error)
+            })
+        // 定义拖动事件
+        const drag = d3.drag()
+            .subject(function () {
+                var r = projectmethod.rotate()
+                return {
+                    x: r[0],
+                    y: -r[1]
+                }
+            })
+            .on("drag", function (event) {
+                const moveFactor = 0.05; // 设置移动因子，用于调整地图移动的速度
+
+                const dx = (event.x - event.subject.x) * moveFactor // 计算鼠标水平移动距离，并乘以移动因子
+                const dy = (event.y - event.subject.y) * moveFactor // 计算鼠标垂直移动距离，并乘以移动因子
+
+                var rotate = projectmethod.rotate()
+                projectmethod.rotate([rotate[0] + dx, rotate[1] - dy, rotate[2]])
+                svg.selectAll("path").attr("d", pathGenerator)
+            });
+
+        svg.call(drag)
+
+        svg.on("click", reset)
+
+        function countryZoomIn(event, d) {
+            const countryName = d.properties.GEOUNIT
+
+            d3.json("ne_10m_admin_1_states_provinces.json")
+                .then(data => {
+                    const geoRegion = topojson.feature(data, data.objects["ne_10m_admin_1_states_provinces"])
+                    console.log(geoRegion)
+                    g.selectAll(".region").remove()
+
+                    const filteredRegions = geoRegion.features.filter(region => {
+                        if (region.properties.geonunit === countryName) {
+                            return region.properties.geonunit === countryName
+                        } else if (region.properties.admin === countryName) {
+                            return region.properties.admin === countryName
+                        }
                     })
-                    .attr("transform", function (d) {
-                        return (
-                            "translate(" + path.centroid(d)[0] + "," + path.centroid(d)[1] + ")"
-                        );
-                    })
-                    // add mouseover functionality to the label
-                    .on("mouseover", function (d, i) {
-                        d3.select(this).style("display", "block");
-                    })
-                    .on("mouseout", function (d, i) {
-                        d3.select(this).style("display", "none");
-                    })
-                    // add an onlcick action to zoom into clicked country
-                    .on("click", function (d, i) {
-                        d3.selectAll(".country").classed("country-on", false);
-                        d3.select("#country" + d.properties.iso_a3).classed("country-on", true);
-                        boxZoom(path.bounds(d), path.centroid(d), 20);
-                    });
-                // add the text to the label group showing country name
-                countryLabels
-                    .append("text")
-                    .attr("class", "countryName")
-                    .style("text-anchor", "middle")
-                    .attr("dx", 0)
-                    .attr("dy", 0)
-                    .text(function (d) {
-                        return d.properties.name;
-                    })
-                    .call(getTextBox);
-                // add a background rectangle the same size as the text
-                countryLabels
-                    .insert("rect", "text")
-                    .attr("class", "countryLabelBg")
-                    .attr("transform", function (d) {
-                        return "translate(" + (d.bbox.x - 2) + "," + d.bbox.y + ")";
-                    })
-                    .attr("width", function (d) {
-                        return d.bbox.width + 4;
-                    })
-                    .attr("height", function (d) {
-                        return d.bbox.height;
-                    });
-                initiateZoom();
-            }
-        );
+                    g.selectAll(".region")
+                        .data(filteredRegions)
+                        .enter()
+                        .append("path")
+                        .attr("d", pathGenerator)
+                        .attr("class", "region")
+                        .on("mouseover", function (event, d) {
+                            tooltip.style("visibility", "visible")
+                                .html(`<p>國家：${d.properties.geonunit}</p><p>城市：${d.properties.name_zht} ${d.properties.name_en}</p><p></p>`)
+                        })
+                        .on("mouseleave", function (event, d) {
+                            tooltip.style("visibility", "hidden")
+                        })
+                })
+
+            event.stopPropagation()
+
+            const [[x0, y0], [x1, y1]] = pathGenerator.bounds(d)
+            const centroid = pathGenerator.centroid(d)
+            const scale = Math.min(2, 0.9 / Math.max((x1 - x0) / width, (y1 - y0) / height))
+            console.log(scale)
+            const translate = [width / 2 - scale * centroid[0], height / 2 - scale * centroid[1]]
+            const moveFactor = 0.05;
+            const dx = -centroid[0] * moveFactor;
+            const dy = centroid[1] * moveFactor;
+            const rotation = [projectmethod.rotate()[0] + dx, projectmethod.rotate()[1] - dy, projectmethod.rotate()[2]];
+
+            svg.transition().duration(800).call(
+                zoom.transform,
+                d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale),
+            )
+
+        }
+
+        function reset() {
+            g.selectAll(".region").remove()
+            svg.transition().duration(750).call(
+                zoom.transform,
+                d3.zoomIdentity,
+                d3.zoomTransform(svg.node()).invert([width / 2, height / 2])
+            )
+        }
+
+        function zoomed(event) { // 更新缩放函数
+            const { transform } = event
+            g.attr("transform", transform)
+            g.attr("stroke-width", 1 / transform.k)
+        }
+
 
     </script>
 </body>
